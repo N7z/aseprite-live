@@ -1,6 +1,6 @@
 [project]
 name = "aseprite-live"
-version = "0.1.0"
+version = "0.1.1"
 description = "Live browser viewer for Aseprite files, with a step-by-step timeline"
 readme = "README.md"
 license = "AGPL-3.0-only"
