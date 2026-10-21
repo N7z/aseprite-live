@@ -1,3 +1,5 @@
+<img src="docs/logo.png" width="128" alt="aseprite-live logo: a pixel canvas with a red live dot and a timeline bar">
+
 # aseprite-live
 
 Watch an AI agent draw pixel art in Aseprite, live, in your browser.
