@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aseprite-live</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'%3E%3Cpath fill='%232f6fde' d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3Cpath fill='%2386a9ef' d='M2 0h2v2H2zM0 2h2v2H0z'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f4f4f2; --panel: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #deded9;
+  --accent: #2f6fde; --accent-ink: #fff; --bad: #c4372d; --bad-bg: #fbeceb; --warn-bg: #fdf5e1;
+  --chk-a: #d6d6d6; --chk-b: #f2f2f2; --grid: rgba(0,0,0,.22); --sel: #e6eefc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18181a; --panel: #222225; --ink: #ececee; --muted: #9a9aa1; --line: #34343a;
+    --accent: #5b8ff0; --accent-ink: #0d0d0f; --bad: #f07167; --bad-bg: #3a2222; --warn-bg: #3a3320;
+    --chk-a: #3a3a3e; --chk-b: #4a4a4f; --grid: rgba(255,255,255,.18); --sel: #2a3550;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: grid; grid-template-columns: 240px 1fr;
+}
+button, select, input { font: inherit; color: inherit; }
+button, select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 9px; cursor: pointer; min-height: 26px;
+}
+button:hover, select:hover { border-color: var(--muted); }
+button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; }
+
+aside { border-right: 1px solid var(--line); background: var(--panel); overflow: auto; display: flex; flex-direction: column; }
+aside header { padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
+aside h1 { font-size: 14px; margin: 0; flex: 1; }
+#conn { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+#conn.ok { background: #2fa84f; }
+#follow-row { padding: 0 14px 8px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+#files { list-style: none; margin: 0; padding: 0 6px 12px; }
+#files li { padding: 6px 8px; border-radius: 6px; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 0 6px; }
+#files li:hover { background: var(--bg); }
+#files li.sel { background: var(--sel); }
+#files .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#files .sub { grid-column: 1 / -1; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#files .badge { color: var(--muted); font-size: 11px; }
+#files li.err .badge::before { content: "● "; color: var(--bad); }
+#files li.gone .name { text-decoration: line-through; color: var(--muted); }
+#roots { margin-top: auto; padding: 10px 14px; color: var(--muted); font-size: 11px; word-break: break-all; border-top: 1px solid var(--line); }
+
+main { overflow: auto; padding: 16px 20px 40px; min-width: 0; }
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+#title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+#title h2 { font-size: 17px; margin: 0; }
+#info { color: var(--muted); }
+.banner { margin: 10px 0 0; padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; }
+.banner.bad { background: var(--bad-bg); color: var(--bad); }
+.banner.warn { background: var(--warn-bg); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 14px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.lbl { color: var(--muted); }
+
+#timeline input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+#stepinfo { margin-top: 8px; color: var(--muted); min-height: 1.4em; }
+#calls { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+#calls code { background: var(--bg); padding: 2px 6px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+#calls code.err { color: var(--bad); }
+
+#views { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+#views > .card { margin-top: 14px; }
+#frames { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.frame { display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.frame .cap { color: var(--muted); font-size: 11px; }
+.frame.cur canvas { outline: 2px solid var(--accent); outline-offset: 2px; }
+canvas.px {
+  image-rendering: pixelated; image-rendering: crisp-edges; display: block;
+  background: repeating-conic-gradient(var(--chk-a) 0 25%, var(--chk-b) 0 50%) 0 0 / 16px 16px;
+}
+#preview-wrap { margin-top: 10px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+#keys { color: var(--muted); margin-top: 18px; font-size: 12px; }
+
+@media (max-width: 700px) {
+  body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  aside { max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  main { padding: 12px 16px 32px; }
+}
+</style>
+</head>
+<body>
+<aside>
+  <header><h1>aseprite-live</h1><span id="conn" title="connecting…"></span></header>
+  <label id="follow-row"><input type="checkbox" id="follow" checked> follow the latest change</label>
+  <ul id="files"></ul>
+  <div id="roots"></div>
+</aside>
+<main>
+  <div id="empty" class="empty">Connecting…</div>
+  <div id="view" hidden>
+    <div id="title"><h2 id="fname"></h2><span id="info"></span></div>
+    <div id="banner" class="banner" hidden></div>
+
+    <section id="timeline" class="card">
+      <div class="row">
+        <button id="replay" title="Replay the drawing steps">▶ Replay</button>
+        <select id="speed" title="Replay speed">
+          <option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option>
+          <option value="10">10 steps/s</option><option value="25">25 steps/s</option>
+        </select>
+        <button id="prev" title="Previous step (←)">‹</button>
+        <input type="range" id="slider" min="0" max="0" value="0">
+        <button id="next" title="Next step (→)">›</button>
+        <button id="live" title="Jump to the latest step (End)">Live</button>
+      </div>
+      <div id="stepinfo"></div>
+      <div id="calls"></div>
+    </section>
+
+    <div class="row" style="margin-top:14px">
+      <span class="lbl">Zoom</span>
+      <button id="zout" title="Zoom out (-)">−</button>
+      <span id="zval" class="mono">1×</span>
+      <button id="zin" title="Zoom in (+)">+</button>
+      <button id="zfit" title="Fit">Fit</button>
+      <button id="grid" title="Pixel grid (G)">Grid</button>
+    </div>
+
+    <div id="views">
+      <section class="card">
+        <div class="row">
+          <button id="play" title="Play / pause (Space)">❚❚</button>
+          <select id="tag" title="Tag"></select>
+          <span id="pinfo" class="lbl mono"></span>
+        </div>
+        <div id="preview-wrap"><canvas id="preview" class="px"></canvas></div>
+      </section>
+      <section class="card" style="flex:1;min-width:200px">
+        <div class="row"><span class="lbl" id="fcount"></span></div>
+        <div id="frames"></div>
+      </section>
+    </div>
+    <div id="keys"><kbd>←</kbd><kbd>→</kbd> steps · <kbd>End</kbd> live · <kbd>R</kbd> replay · <kbd>Space</kbd> play · <kbd>G</kbd> grid · <kbd>+</kbd><kbd>−</kbd> zoom</div>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const ZOOMS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32];
+const S = {
+  files: new Map(), sel: null, follow: true, maxSteps: 200, roots: [], boot: "",
+  stepId: null,          // null = live (always the newest step)
+  zoom: 0,               // 0 = fit
+  grid: false, playing: true, tag: "", seqPos: 0, frame: 0,
+  replayTimer: null, animTimer: null,
+};
+const images = new Map(); // "fid/sid" -> Promise<HTMLImageElement>
+
+function loadImage(fid, sid) {
+  const key = fid + "/" + sid;
+  if (!images.has(key)) {
+    images.set(key, new Promise((ok, bad) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => { images.delete(key); bad(new Error("image failed")); };
+      im.src = "/png/" + fid + "/" + sid + ".png?boot=" + S.boot; // immutable per server run
+    }));
+    if (images.size > 3000) images.delete(images.keys().next().value);
+  }
+  return images.get(key);
+}
+
+// ---------- data ----------
+function current() { return S.files.get(S.sel) || null; }
+function stepIndex(f) {
+  if (!f || !f.steps.length) return -1;
+  if (S.stepId == null) return f.steps.length - 1;
+  const i = f.steps.findIndex((s) => s.id === S.stepId);
+  return i < 0 ? 0 : i;
+}
+function latestFile() {
+  let best = null;
+  for (const f of S.files.values()) if (f.steps.length && (!best || f.changed > best.changed)) best = f;
+  return best || S.files.values().next().value || null;
+}
+
+// ---------- server events ----------
+function connect() {
+  const es = new EventSource("/events");
+  es.onopen = () => setConn(true);
+  es.onerror = () => setConn(false);
+  es.addEventListener("hello", (e) => {
+    setConn(true);
+    const d = JSON.parse(e.data);
+    if (d.boot !== S.boot) { images.clear(); S.stepId = null; } // server restarted: step ids start over
+    S.maxSteps = d.maxSteps; S.roots = d.roots; S.boot = d.boot;
+    S.files = new Map(d.files.map((f) => [f.id, f]));
+    if (S.follow || !S.files.has(S.sel)) S.sel = latestFile()?.id ?? null;
+    renderAll();
+  });
+  es.addEventListener("update", (e) => {
+    const { file, step } = JSON.parse(e.data);
+    let f = S.files.get(file.id);
+    if (!f) S.files.set(file.id, f = { ...file, steps: [] });
+    else Object.assign(f, file);
+    if (step) {
+      f.steps.push(step);
+      while (f.steps.length > S.maxSteps) f.steps.shift();
+      loadImage(f.id, step.id).catch(() => {});
+    }
+    const switched = S.follow && step && S.sel !== f.id;
+    if (switched || S.sel == null) { S.sel = f.id; S.stepId = null; S.zoom = 0; }
+    renderList();
+    if (f.id === S.sel) renderFile();
+  });
+}
+function setConn(ok) { $("conn").className = ok ? "ok" : ""; $("conn").title = ok ? "live" : "reconnecting…"; }
+
+// ---------- sidebar ----------
+function ago(t) {
+  const s = Math.max(0, (Date.now() / 1000 - t) | 0);
+  return s < 60 ? s + "s ago" : s < 3600 ? ((s / 60) | 0) + "m ago" : new Date(t * 1000).toLocaleTimeString();
+}
+function renderList() {
+  const ul = $("files");
+  const files = [...S.files.values()].sort((a, b) => b.changed - a.changed);
+  ul.replaceChildren(...files.map((f) => {
+    const li = document.createElement("li");
+    li.className = (f.id === S.sel ? "sel " : "") + (f.error ? "err " : "") + (f.deleted ? "gone" : "");
+    li.title = f.path + (f.error ? "\n\n" + f.error : "");
+    li.innerHTML = `<span class="name"></span><span class="badge"></span><span class="sub"></span>`;
+    li.querySelector(".name").textContent = f.name;
+    li.querySelector(".badge").textContent = f.steps.length + (f.steps.length === 1 ? " step" : " steps");
+    li.querySelector(".sub").textContent = (f.path !== f.name ? f.path.slice(0, -f.name.length) + " · " : "") + (f.changed ? ago(f.changed) : "");
+    li.onclick = () => {
+      S.follow = false; $("follow").checked = false;
+      if (S.sel !== f.id) { S.sel = f.id; S.stepId = null; S.zoom = 0; stopReplay(); }
+      renderAll();
+    };
+    return li;
+  }));
+  $("roots").textContent = S.roots.length ? "Watching " + S.roots.join(", ") : "";
+}
+setInterval(renderList, 5000);
+
+// ---------- main view ----------
+function renderAll() { renderList(); renderFile(); }
+
+function renderFile() {
+  const f = current();
+  $("empty").hidden = !!f;
+  $("view").hidden = !f;
+  if (!f) { $("empty").textContent = "Waiting for .aseprite / .ase files" + (S.roots.length ? " in " + S.roots.join(", ") : "") + "…"; return; }
+  $("fname").textContent = f.path;
+  const b = $("banner");
+  if (f.error) {
+    b.hidden = false;
+    const half = f.error.startsWith("file looks half-written");
+    b.className = "banner " + (half ? "warn" : "bad");
+    b.textContent = (half ? "" : "Render failed: ") + f.error + (f.steps.length ? "\nShowing the last good render." : "");
+  } else if (f.deleted) {
+    b.hidden = false; b.className = "banner warn"; b.textContent = "The file was deleted. Showing its last render.";
+  } else b.hidden = true;
+  renderStep();
+}
+
+function fmtArgs(args) {
+  const parts = [];
+  for (const [k, v] of Object.entries(args || {})) {
+    if (k === "filename") continue;
+    let s = typeof v === "string" ? JSON.stringify(v.length > 28 ? v.slice(0, 27) + "…" : v) : JSON.stringify(v);
+    if (s.length > 40) s = s.slice(0, 39) + "…";
+    parts.push(k + "=" + s);
+  }
+  return parts.join(", ");
+}
+
+function renderStep() {
+  const f = current();
+  const i = stepIndex(f);
+  const n = f.steps.length;
+  const sl = $("slider");
+  sl.max = Math.max(0, n - 1); sl.value = Math.max(0, i); sl.disabled = n < 2;
+  $("prev").disabled = i <= 0; $("next").disabled = i < 0 || i >= n - 1;
+  $("live").className = S.stepId == null ? "on" : "";
+  $("replay").disabled = n < 2;
+  $("replay").textContent = S.replayTimer ? "❚❚ Pause" : "▶ Replay";
+  const step = f.steps[i];
+  const calls = $("calls");
+  if (!step) {
+    $("stepinfo").textContent = f.error ? "No good render yet." : "Rendering…";
+    calls.replaceChildren(); $("info").textContent = "";
+    clearCanvases(); return;
+  }
+  const t = new Date(step.time * 1000);
+  const prev = f.steps[i - 1];
+  $("stepinfo").textContent = `Step ${i + 1} of ${n} (#${step.id}) · ${t.toLocaleTimeString()}.${String(t.getMilliseconds()).padStart(3, "0")}`
+    + (prev ? ` · +${(step.time - prev.time).toFixed(1)}s` : "")
+    + (step.id > n && i === 0 ? ` · older steps dropped (max ${S.maxSteps})` : "");
+  calls.replaceChildren(...step.labels.map((c) => {
+    const el = document.createElement("code");
+    el.textContent = `${c.tool}(${fmtArgs(c.arguments)})` + (c.error ? "  → error" : "");
+    el.title = JSON.stringify(c.arguments, null, 2);
+    if (c.error) el.className = "err";
+    return el;
+  }));
+  const tags = step.tags.map((g) => g.name).join(", ");
+  $("info").textContent = `${step.w}×${step.h} · ${step.frames.length} frame${step.frames.length > 1 ? "s" : ""}`
+    + (step.layers.length ? ` · layers: ${step.layers.join(", ")}` : "") + (tags ? ` · tags: ${tags}` : "");
+  renderTags(step);
+  const fid = f.id;
+  loadImage(fid, step.id).then((im) => {
+    if (current()?.id !== fid || f.steps[stepIndex(f)] !== step) return; // moved on meanwhile
+    S.img = im; S.step = step;
+    drawFrames(); drawPreview();
+  }).catch(() => {});
+  // keep the neighbours warm for scrubbing and replay
+  for (const j of [i + 1, i + 2, i - 1]) if (f.steps[j]) loadImage(fid, f.steps[j].id).catch(() => {});
+}
+
+function fitZoom(step) { return Math.max(1, Math.min(32, Math.floor(192 / Math.max(step.w, step.h)))); }
+function zoom() { return S.zoom || (S.step ? fitZoom(S.step) : 4); }
+
+function drawSprite(canvas, frameIdx, z) {
+  const [x, y, w, h] = S.step.frames[frameIdx];
+  if (canvas.width !== w * z || canvas.height !== h * z) { canvas.width = w * z; canvas.height = h * z; }
+  const cell = z * Math.ceil(16 / z); // checker squares line up with sprite pixels
+  canvas.style.backgroundSize = `${2 * cell}px ${2 * cell}px`;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(S.img, x, y, w, h, 0, 0, w * z, h * z);
+  if (S.grid && z >= 4) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid");
+    for (let gx = 1; gx < w; gx++) ctx.fillRect(gx * z, 0, 1, h * z);
+    for (let gy = 1; gy < h; gy++) ctx.fillRect(0, gy * z, w * z, 1);
+  }
+}
+
+function drawFrames() {
+  const box = $("frames");
+  const frames = S.step.frames;
+  if (box.children.length !== frames.length) {
+    box.replaceChildren(...frames.map((_, k) => {
+      const d = document.createElement("div");
+      d.className = "frame";
+      d.innerHTML = `<canvas class="px"></canvas><span class="cap"></span>`;
+      d.onclick = () => { S.playing = false; S.frame = k; syncSeq(); drawPreview(); updatePlay(); };
+      return d;
+    }));
+  }
+  const z = zoom();
+  frames.forEach((fr, k) => {
+    const d = box.children[k];
+    drawSprite(d.firstChild, k, z);
+    d.lastChild.textContent = `${k + 1} · ${fr[4]}ms`;
+  });
+  $("fcount").textContent = `Frames (${frames.length})`;
+  $("zval").textContent = z + "×";
+  markFrame();
+}
+function markFrame() { [...$("frames").children].forEach((d, k) => d.classList.toggle("cur", k === S.frame)); }
+function clearCanvases() { $("frames").replaceChildren(); const c = $("preview"); c.width = c.height = 0; S.step = null; }
+
+// ---------- animated preview ----------
+function renderTags(step) {
+  const sel = $("tag");
+  const names = step.tags.map((t) => t.name);
+  const want = ["", ...names].join("\n");
+  if (sel.dataset.names !== want) {
+    sel.dataset.names = want;
+    sel.replaceChildren(new Option("All frames", ""), ...step.tags.map((t) => new Option(`${t.name} (${t.from + 1}–${t.to + 1})`, t.name)));
+  }
+  if (!names.includes(S.tag)) S.tag = "";
+  sel.value = S.tag;
+  sel.hidden = !names.length;
+}
+function sequence() {
+  const st = S.step, n = st.frames.length;
+  const t = st.tags.find((g) => g.name === S.tag);
+  const a = t ? t.from : 0, b = t ? t.to : n - 1, dir = t ? t.direction : "forward";
+  const fwd = []; for (let k = a; k <= b; k++) fwd.push(k);
+  const rev = [...fwd].reverse();
+  if (dir === "reverse") return rev;
+  if (dir === "pingpong") return fwd.concat(rev.slice(1, -1));
+  if (dir === "pingpong_reverse") return rev.concat(fwd.slice(1, -1));
+  return fwd;
+}
+function syncSeq() { const q = sequence(); const p = q.indexOf(S.frame); S.seqPos = p < 0 ? 0 : p; }
+function drawPreview() {
+  if (!S.step) return;
+  const q = sequence();
+  if (!q.includes(S.frame)) { S.seqPos = 0; S.frame = q[0]; }
+  drawSprite($("preview"), S.frame, zoom() * 2);
+  $("pinfo").textContent = `frame ${S.frame + 1} · ${S.step.frames[S.frame][4]}ms`;
+  markFrame();
+  schedule();
+}
+function schedule() {
+  clearTimeout(S.animTimer);
+  if (!S.playing || !S.step) return;
+  S.animTimer = setTimeout(() => {
+    const q = sequence();
+    S.seqPos = (S.seqPos + 1) % q.length;
+    S.frame = q[S.seqPos];
+    drawPreview();
+  }, S.step.frames[S.frame][4]);
+}
+function updatePlay() { $("play").textContent = S.playing ? "❚❚" : "▶"; $("play").title = S.playing ? "Pause (Space)" : "Play (Space)"; }
+
+// ---------- step navigation / replay ----------
+function goTo(i) {
+  const f = current(); if (!f || !f.steps.length) return;
+  i = Math.max(0, Math.min(f.steps.length - 1, i));
+  S.stepId = i === f.steps.length - 1 ? null : f.steps[i].id;
+  renderStep();
+}
+function stopReplay() { clearInterval(S.replayTimer); S.replayTimer = null; }
+function toggleReplay() {
+  const f = current(); if (!f || f.steps.length < 2) return;
+  if (S.replayTimer) { stopReplay(); renderStep(); return; }
+  let i = stepIndex(f);
+  if (i >= f.steps.length - 1) i = -1; // at the end: start over
+  f.steps.forEach((s) => loadImage(f.id, s.id).catch(() => {}));
+  const tick = () => {
+    const g = current();
+    if (!g || g.id !== f.id) return stopReplay();
+    i = Math.min(stepIndex(g) + 1, g.steps.length - 1);
+    if (i >= g.steps.length - 1) stopReplay();
+    goTo(i);
+  };
+  S.replayTimer = setInterval(tick, 1000 / +$("speed").value);
+  if (i === -1) { S.stepId = f.steps[0].id; }
+  renderStep();
+}
+
+// ---------- controls ----------
+$("follow").onchange = (e) => { S.follow = e.target.checked; if (S.follow) { const l = latestFile(); if (l && l.id !== S.sel) { S.sel = l.id; S.stepId = null; S.zoom = 0; } renderAll(); } };
+$("slider").oninput = (e) => { stopReplay(); goTo(+e.target.value); };
+$("prev").onclick = () => { stopReplay(); goTo(stepIndex(current()) - 1); };
+$("next").onclick = () => { stopReplay(); goTo(stepIndex(current()) + 1); };
+$("live").onclick = () => { stopReplay(); S.stepId = null; renderStep(); };
+$("replay").onclick = toggleReplay;
+$("speed").onchange = () => { if (S.replayTimer) { stopReplay(); toggleReplay(); } };
+$("play").onclick = () => { S.playing = !S.playing; updatePlay(); schedule(); };
+$("tag").onchange = (e) => { S.tag = e.target.value; S.seqPos = 0; S.frame = sequence()[0]; drawPreview(); };
+function setZoom(dir) {
+  const z = zoom();
+  let k = ZOOMS.findIndex((v) => v >= z);
+  if (k < 0) k = ZOOMS.length - 1;
+  if (ZOOMS[k] !== z && dir < 0) k++; // between two levels
+  S.zoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, k + dir))];
+  if (S.step) { drawFrames(); drawPreview(); }
+}
+$("zin").onclick = () => setZoom(1);
+$("zout").onclick = () => setZoom(-1);
+$("zfit").onclick = () => { S.zoom = 0; if (S.step) { drawFrames(); drawPreview(); } };
+$("grid").onclick = () => { S.grid = !S.grid; $("grid").className = S.grid ? "on" : ""; if (S.step) { drawFrames(); drawPreview(); } };
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, select") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.matches("button") && (e.key === " " || e.key === "Enter")) return;
+  const f = current(); if (!f) return;
+  const k = e.key;
+  if (k === "ArrowLeft") { stopReplay(); goTo(stepIndex(f) - 1); }
+  else if (k === "ArrowRight") { stopReplay(); goTo(stepIndex(f) + 1); }
+  else if (k === "Home") { stopReplay(); goTo(0); }
+  else if (k === "End") { $("live").click(); }
+  else if (k === " ") { $("play").click(); }
+  else if (k === "r" || k === "R") toggleReplay();
+  else if (k === "g" || k === "G") $("grid").click();
+  else if (k === "+" || k === "=") setZoom(1);
+  else if (k === "-") setZoom(-1);
+  else return;
+  e.preventDefault();
+});
+
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Launcher: runs the app with uv from any folder (the watched folder is the current one).
+here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec uv run --quiet --project "$here" python -m aseprite_live "$@"
