@@ -5,6 +5,7 @@ from __future__ import annotations
 import errno
 import json
 import queue
+import sys
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -82,7 +83,10 @@ class Handler(BaseHTTPRequestHandler):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    # On Windows SO_REUSEADDR lets a second process bind a port that is already
+    # in use, so a stale viewer and a new one would silently share 7777 and the
+    # browser could land on the stale one. Only reuse addresses elsewhere.
+    allow_reuse_address = sys.platform != "win32"
 
 
 def make_server(app: App, port: int, tries: int = 10) -> Server:
