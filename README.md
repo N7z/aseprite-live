@@ -76,6 +76,10 @@ For example, in Claude Code's `.mcp.json`:
 
 The viewer URL goes to stderr, since stdout carries MCP. Folders of absolute sprite paths seen in tool calls are watched automatically.
 
+## Related projects
+
+[Aseprite MCP Tools](https://github.com/diivi/aseprite-mcp): MCP server that lets AI agents draw in Aseprite. Pairs well with `aseprite-live`.
+
 ## How it works
 
 - Polls the folder every 150 ms, so it works anywhere, including `/mnt/c` on WSL.
