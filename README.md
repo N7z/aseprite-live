@@ -9,8 +9,8 @@ Agents using the [Aseprite MCP server](https://github.com/diivi/aseprite-mcp) sa
 ![aseprite-live replaying a slime being drawn](docs/screenshot.png)
 
 - Live updates, no refresh needed
-- All frames side by side, with a pixel grid and zoom
-- Animated preview at the real frame durations, per tag
+- A big animated preview at the real frame durations, per tag, with a pixel grid and zoom
+- Every frame in a strip below it, click one to inspect it
 - A timeline of every save, with a slider and replay
 - Optional MCP proxy that labels each step with the tool call that made it
 
@@ -47,7 +47,7 @@ mkdir -p /tmp/art && cd /tmp/art && aseprite-live &
 path/to/aseprite-live/examples/demo.sh /tmp/art/slime.aseprite
 ```
 
-Keys: `←` `→` step, `Home` `End` first/latest, `R` replay, `Space` play/pause, `G` grid, `+` `-` zoom.
+Keys: `←` `→` step, `Home` `End` first/latest, `R` replay, `Space` play/pause, `G` grid, `+` `-` zoom, `F` fit. `Ctrl` + mouse wheel zooms too.
 
 Options: `--port N`, `--aseprite PATH`, `--max-steps N` (default 200).
 
@@ -97,3 +97,5 @@ uv run python -m unittest -v
 ## License
 
 [AGPL-3.0](LICENSE)
+
+The viewer embeds the [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) and [VT323](https://fonts.google.com/specimen/VT323) fonts, under the SIL Open Font License 1.1 ([OFL.txt](aseprite_live/OFL.txt)).
