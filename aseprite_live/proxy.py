@@ -165,6 +165,12 @@ def run_proxy(cmd: list[str], log: CallLog, stdin: BinaryIO | None = None,
     threading.Thread(target=client_to_server, name="c2s", daemon=True).start()
     try:
         _pump(child.stdout, stdout, log.server_line)  # until the server exits
+        # Its stdout closes a moment before the process is gone (notably on
+        # Windows): wait for it, or we'd kill a server that is already exiting.
+        try:
+            child.wait(grace)
+        except subprocess.TimeoutExpired:
+            pass
     finally:  # also on SIGTERM / Ctrl-C: never leave the server orphaned
         child.stdout.close()
         if child.poll() is None:
